@@ -4,6 +4,7 @@ import json
 import logging
 
 import anthropic
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..config import settings
 from ..ingestion.models import NewsStory
@@ -38,6 +39,7 @@ class ScriptWriter:
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
     def generate_script(self, stories: list[NewsStory]) -> PodcastScript:
         top_stories = stories[: settings.max_stories_per_episode]
         stories_text = self._format_stories(top_stories)
@@ -60,12 +62,16 @@ Svara med JSON enligt detta schema:
         )
 
         raw = message.content[0].text.strip()
-        # Strip markdown code fences if present
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
-        data = json.loads(raw)
+        raw = raw.strip()
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse script JSON: %s\nRaw response: %s", e, raw[:500])
+            raise ValueError(f"ScriptWriter returned invalid JSON: {e}") from e
         return PodcastScript(
             episode_title=data["episode_title"],
             episode_summary=data["episode_summary"],
