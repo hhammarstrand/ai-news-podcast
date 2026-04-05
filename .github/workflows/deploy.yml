@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_now:
+        description: "Trigger an episode generation run immediately after deploy"
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/ai-news-podcast:$IMAGE_TAG ./pipeline
+          docker push $ECR_REGISTRY/ai-news-podcast:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/ai-news-podcast:$IMAGE_TAG $ECR_REGISTRY/ai-news-podcast:latest
+          docker push $ECR_REGISTRY/ai-news-podcast:latest
+
+      - name: Update ECS task definition
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          aws ecs update-service \
+            --cluster ai-news-podcast \
+            --service pipeline-runner \
+            --force-new-deployment
+
+  trigger-episode:
+    needs: deploy
+    if: github.event.inputs.run_now == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger episode generation
+        run: |
+          aws ecs run-task \
+            --cluster ai-news-podcast \
+            --task-definition ai-news-podcast-pipeline \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.ECS_SUBNET }}],securityGroups=[${{ secrets.ECS_SG }}],assignPublicIp=ENABLED}"

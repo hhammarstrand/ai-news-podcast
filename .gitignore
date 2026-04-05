@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+.coverage
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+
+# Environment
+.env
+*.env.local
+
+# Output
+/tmp/
+pipeline_output/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.backup
+infrastructure/terraform/.terraform.lock.hcl

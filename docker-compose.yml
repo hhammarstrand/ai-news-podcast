@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: podcast
+      POSTGRES_USER: podcast
+      POSTGRES_PASSWORD: podcast
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Optional: local pipeline run (requires real API keys in .env)
+  pipeline:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    env_file: pipeline/.env
+    depends_on:
+      - postgres
+    volumes:
+      - /tmp/podcast_output:/tmp/podcast_output
+    profiles:
+      - run  # Only start with: docker-compose --profile run up pipeline
+
+volumes:
+  postgres_data:
