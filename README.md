@@ -15,7 +15,7 @@ News Sources → Ingestion → Editorial AI → TTS → Audio Assembly → Distr
 | Backend/Pipeline | Python 3.12 | Best ecosystem for AI/ML, LLM SDKs, audio processing |
 | Cloud | AWS | Mature, S3 for audio storage, Lambda/ECS for pipeline |
 | LLM | Anthropic Claude | Best-in-class for editorial script generation |
-| TTS | ElevenLabs | High-quality, multilingual (Swedish + English) voices |
+| TTS | MiniMax | High-quality Swedish voices via speech-2.8-hd model |
 | Audio | ffmpeg | Industry standard for audio mixing/assembly |
 | Database | PostgreSQL (RDS) | Episode state, run tracking |
 | Queue | AWS SQS | Decoupled pipeline job queuing |
@@ -31,7 +31,7 @@ News Sources → Ingestion → Editorial AI → TTS → Audio Assembly → Distr
 │   ├── src/
 │   │   ├── ingestion/      # News fetching from RSS, APIs, scrapers
 │   │   ├── editorial/      # Claude-powered script generation
-│   │   ├── tts/            # ElevenLabs TTS integration
+│   │   ├── tts/            # MiniMax TTS integration
 │   │   ├── audio/          # ffmpeg audio assembly
 │   │   ├── distribution/   # RSS feed + podcast platform APIs
 │   │   ├── storage/        # S3 operations
@@ -79,7 +79,7 @@ See `.env.example` for all required configuration.
 
 Key variables:
 - `ANTHROPIC_API_KEY` — Claude API key
-- `ELEVENLABS_API_KEY` — ElevenLabs TTS API key
+- `MINIMAX_API_KEY` / `MINIMAX_GROUP_ID` — MiniMax TTS credentials
 - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` — AWS credentials
 - `AWS_S3_BUCKET` — S3 bucket for audio files
 - `DATABASE_URL` — PostgreSQL connection string
@@ -89,6 +89,6 @@ Key variables:
 
 1. **Ingestion** — Fetch top stories from RSS feeds (SVT, SR, Reuters, TechCrunch, etc.)
 2. **Editorial** — Claude selects and ranks stories, writes a podcast script in Swedish/English
-3. **TTS** — ElevenLabs converts script to audio segments per speaker
+3. **TTS** — MiniMax converts script to audio segments per speaker (Swedish_male_1_v1, Swedish_female_1_v1)
 4. **Assembly** — ffmpeg mixes segments with intro/outro music into a single MP3
 5. **Distribution** — Upload to S3, update RSS feed, push to Spotify/Apple Podcasts
