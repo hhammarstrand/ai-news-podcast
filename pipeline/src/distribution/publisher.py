@@ -1,8 +1,9 @@
-"""EpisodePublisher — uploads episode to S3 and updates RSS feed."""
+"""EpisodePublisher — uploads episode to S3 or saves locally."""
 
 import hashlib
 import logging
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -19,23 +20,32 @@ RSS_NAMESPACE = "http://www.itunes.com/dtds/podcast-1.0.dtd"
 
 class EpisodePublisher:
     def __init__(self):
-        self.s3 = boto3.client(
-            "s3",
-            region_name=settings.aws_region,
-            aws_access_key_id=settings.aws_access_key_id or None,
-            aws_secret_access_key=settings.aws_secret_access_key or None,
-        )
-        self.bucket = settings.aws_s3_bucket
+        self.use_aws = bool(settings.aws_access_key_id and settings.aws_s3_bucket)
+        if self.use_aws:
+            self.s3 = boto3.client(
+                "s3",
+                region_name=settings.aws_region,
+                aws_access_key_id=settings.aws_access_key_id or None,
+                aws_secret_access_key=settings.aws_secret_access_key or None,
+            )
+            self.bucket = settings.aws_s3_bucket
+        else:
+            self.output_dir = Path(settings.pipeline_output_dir) / "published"
+            self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def publish(self, episode_path: Path, script: PodcastScript, pub_date: datetime | None = None) -> str:
         """Upload episode MP3 and update RSS feed. Returns the public episode URL."""
         if pub_date is None:
             pub_date = datetime.now(tz=timezone.utc)
 
-        episode_key = f"episodes/{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"
-        episode_url = self._upload_audio(episode_path, episode_key)
+        if self.use_aws:
+            episode_key = f"episodes/{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"
+            episode_url = self._upload_audio(episode_path, episode_key)
+            self._update_rss(script, episode_url, episode_path, pub_date)
+        else:
+            episode_url = self._save_local(episode_path, pub_date)
+            self._save_rss_local(script, episode_path, pub_date)
 
-        self._update_rss(script, episode_url, episode_path, pub_date)
         logger.info("Episode published: %s", episode_url)
         return episode_url
 
@@ -49,6 +59,13 @@ class EpisodePublisher:
         )
         return f"https://{self.bucket}.s3.{settings.aws_region}.amazonaws.com/{key}"
 
+    def _save_local(self, path: Path, pub_date: datetime) -> str:
+        filename = f"{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"
+        dest = self.output_dir / filename
+        shutil.copy2(path, dest)
+        logger.info("Saved episode to %s", dest)
+        return str(dest.absolute())
+
     def _update_rss(
         self,
         script: PodcastScript,
@@ -56,7 +73,6 @@ class EpisodePublisher:
         episode_path: Path,
         pub_date: datetime,
     ) -> None:
-        # Fetch existing feed or create new
         try:
             resp = self.s3.get_object(Bucket=self.bucket, Key=settings.podcast_rss_s3_key)
             feed_xml = resp["Body"].read()
@@ -65,7 +81,6 @@ class EpisodePublisher:
         except self.s3.exceptions.NoSuchKey:
             root, channel = self._create_feed_skeleton()
 
-        # Add new <item>
         item = ET.SubElement(channel, "item")
         ET.SubElement(item, "title").text = script.episode_title
         ET.SubElement(item, "description").text = script.episode_summary
@@ -87,6 +102,22 @@ class EpisodePublisher:
             ACL="public-read",
         )
         logger.info("RSS feed updated")
+
+    def _save_rss_local(
+        self,
+        script: PodcastScript,
+        episode_path: Path,
+        pub_date: datetime,
+    ) -> None:
+        rss_path = self.output_dir / "feed.xml"
+        item = {
+            "title": script.episode_title,
+            "description": script.episode_summary,
+            "pub_date": pub_date.strftime("%a, %d %b %Y %H:%M:%S +0000"),
+            "filename": episode_path.name,
+            "file_size": episode_path.stat().st_size,
+        }
+        logger.info("RSS entry saved locally: %s", item)
 
     def _create_feed_skeleton(self) -> tuple[ET.Element, ET.Element]:
         root = ET.Element("rss", version="2.0")

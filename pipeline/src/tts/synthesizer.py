@@ -1,4 +1,4 @@
-"""TTSSynthesizer — converts script segments to audio via ElevenLabs."""
+"""TTSSynthesizer — converts script segments to audio via MiniMax TTS."""
 
 import logging
 import os
@@ -12,21 +12,23 @@ from ..editorial.models import ScriptSegment
 
 logger = logging.getLogger(__name__)
 
-ELEVENLABS_BASE = "https://api.elevenlabs.io/v1"
+MINIMAX_BASE = "https://api.minimax.io/v1"
 
-# Voice IDs — configure these to your preferred ElevenLabs voices
-VOICES = {
-    "host": settings.elevenlabs_voice_id_host,
-    "co_host": "EXAVITQu4vr4xnSDxMaL",  # Bella voice as co-host
+MINIMAX_VOICES = {
+    "host": "Swedish_male_1_v1",
+    "co_host": "Swedish_female_1_v1",
 }
 
 
 class TTSSynthesizer:
     def __init__(self):
-        self.headers = {
-            "xi-api-key": settings.elevenlabs_api_key,
-            "Content-Type": "application/json",
-        }
+        self.use_minimax = bool(settings.minimax_api_key and settings.minimax_group_id)
+        if self.use_minimax:
+            self.headers = {
+                "Authorization": f"Bearer {settings.minimax_api_key}",
+                "Content-Type": "application/json",
+            }
+            self.group_id = settings.minimax_group_id
 
     def synthesize_segments(
         self, segments: list[ScriptSegment], output_dir: Path
@@ -43,19 +45,40 @@ class TTSSynthesizer:
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
     def _synthesize_segment(self, segment: ScriptSegment, output_path: Path) -> None:
-        voice_id = VOICES.get(segment.speaker, VOICES["host"])
-        url = f"{ELEVENLABS_BASE}/text-to-speech/{voice_id}"
+        if self.use_minimax:
+            self._synthesize_minimax(segment, output_path)
+        else:
+            raise RuntimeError("No TTS provider configured. Set MINIMAX_API_KEY and MINIMAX_GROUP_ID or ELEVENLABS_API_KEY")
+
+    def _synthesize_minimax(self, segment: ScriptSegment, output_path: Path) -> None:
+        voice = MINIMAX_VOICES.get(segment.speaker, MINIMAX_VOICES["host"])
+        url = f"{MINIMAX_BASE}/t2a_v2"
         payload = {
+            "model": "speech-2.8-hd",
             "text": segment.text,
-            "model_id": "eleven_multilingual_v2",
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.75,
-                "style": 0.0,
-                "use_speaker_boost": True,
+            "stream": False,
+            "voice_setting": {
+                "voice_id": voice,
+            },
+            "audio_setting": {
+                "sample_rate": 44100,
+                "bitrate": 256000,
+                "format": "mp3",
             },
         }
         with httpx.Client(timeout=60.0) as client:
-            resp = client.post(url, headers=self.headers, json=payload)
+            resp = client.post(
+                url,
+                headers=self.headers,
+                json=payload,
+                params={"GroupId": self.group_id},
+            )
             resp.raise_for_status()
-        output_path.write_bytes(resp.content)
+        data = resp.json()
+        if "data" in data and "audio_file" in data["data"]:
+            audio_url = data["data"]["audio_file"]
+            audio_resp = client.get(audio_url)
+            audio_resp.raise_for_status()
+            output_path.write_bytes(audio_resp.content)
+        else:
+            raise RuntimeError(f"MiniMax TTS failed: {data}")

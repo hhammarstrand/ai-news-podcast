@@ -10,8 +10,12 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     claude_model: str = "claude-opus-4-6"
 
-    # ElevenLabs TTS
-    elevenlabs_api_key: str
+    # MiniMax TTS
+    minimax_api_key: str = ""
+    minimax_group_id: str = ""
+
+    # ElevenLabs TTS (optional fallback)
+    elevenlabs_api_key: str = ""
     elevenlabs_voice_id_host: str = "pNInz6obpgDQGcFmaJgB"  # Adam voice
 
     # AWS
