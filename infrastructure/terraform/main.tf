@@ -60,6 +60,8 @@ module "ecs" {
   pipeline_environment = {
     ANTHROPIC_API_KEY    = var.anthropic_api_key
     ELEVENLABS_API_KEY   = var.elevenlabs_api_key
+    MINIMAX_API_KEY      = var.minimax_api_key
+    MINIMAX_GROUP_ID     = var.minimax_group_id
     AWS_S3_BUCKET        = module.s3.bucket_name
     DATABASE_URL         = var.database_url
     NEWS_API_KEY         = var.news_api_key
@@ -102,6 +104,16 @@ variable "database_url" {
 
 variable "news_api_key" {
   description = "NewsAPI.org API key"
+  sensitive   = true
+}
+
+variable "minimax_api_key" {
+  description = "MiniMax API key for TTS"
+  sensitive   = true
+}
+
+variable "minimax_group_id" {
+  description = "MiniMax Group ID for TTS"
   sensitive   = true
 }
 

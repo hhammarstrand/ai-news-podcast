@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     # MiniMax TTS
     minimax_api_key: str = ""
     minimax_group_id: str = ""
+    minimax_voice_host: str = "Swedish_male_1_v1"
+    minimax_voice_cobost: str = "Swedish_female_1_v1"
 
     # ElevenLabs TTS (optional fallback)
     elevenlabs_api_key: str = ""
