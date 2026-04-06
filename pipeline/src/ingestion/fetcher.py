@@ -11,14 +11,37 @@ from .models import NewsCategory, NewsStory
 logger = logging.getLogger(__name__)
 
 # RSS feeds by category
+# Swedish: primary news sources
+# International: global wire services and major outlets
+# Tech: leading technology publications
+# AI: AI/ML-specific news and research
 RSS_FEEDS: dict[str, tuple[NewsCategory, str]] = {
+    # Swedish News
     "SVT Nyheter": (NewsCategory.SWEDEN, "https://www.svt.se/nyheter/rss.xml"),
     "SR Nyheter": (NewsCategory.SWEDEN, "https://api.sr.se/api/v2/news/episodes?format=json"),
+    "DN Nyheter": (NewsCategory.SWEDEN, "https://www.dn.se/nyheter/puff/rss/"),
+    "GP Nyheter": (NewsCategory.SWEDEN, "https://www.gp.se/nyheter/rss"),
+    "Expressen": (NewsCategory.SWEDEN, "https://feeds.expressen.se/nyheter"),
+    "Aftonbladet": (NewsCategory.SWEDEN, "https://www.aftonbladet.se/nyheter/rss"),
+    # International News
     "Reuters World": (NewsCategory.INTERNATIONAL, "https://feeds.reuters.com/Reuters/worldNews"),
     "BBC World": (NewsCategory.INTERNATIONAL, "http://feeds.bbci.co.uk/news/world/rss.xml"),
+    "AP News": (NewsCategory.INTERNATIONAL, "https://rsshub.app/apnews/topnews"),
+    "Al Jazeera": (NewsCategory.INTERNATIONAL, "https://www.aljazeera.com/xml/rss/all.xml"),
+    "NPR News": (NewsCategory.INTERNATIONAL, "https://feeds.npr.org/1001/rss.xml"),
+    "The Guardian World": (NewsCategory.INTERNATIONAL, "https://www.theguardian.com/world/rss"),
+    # Tech News
     "TechCrunch": (NewsCategory.TECH, "https://techcrunch.com/feed/"),
     "The Verge": (NewsCategory.TECH, "https://www.theverge.com/rss/index.xml"),
+    "Wired": (NewsCategory.TECH, "https://www.wired.com/feed/rss"),
+    "Ars Technica": (NewsCategory.TECH, "https://feeds.arstechnica.com/arstechnica/index"),
+    "VentureBeat": (NewsCategory.TECH, "https://venturebeat.com/feed/"),
+    # AI News
     "AI News": (NewsCategory.AI, "https://artificialintelligence-news.com/feed/"),
+    "MIT Tech Review": (NewsCategory.AI, "https://www.technologyreview.com/feed/"),
+    "The Gradient": (NewsCategory.AI, "https://thegradient.pub/rss/"),
+    "VentureBeat AI": (NewsCategory.AI, "https://venturebeat.com/category/ai/feed/"),
+    "AI Insider": (NewsCategory.AI, "https://newsletter.artificialintelligence-insider.com/feed"),
 }
 
 
