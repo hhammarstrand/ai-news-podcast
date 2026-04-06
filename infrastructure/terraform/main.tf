@@ -59,7 +59,6 @@ module "ecs" {
 
   pipeline_environment = {
     ANTHROPIC_API_KEY    = var.anthropic_api_key
-    ELEVENLABS_API_KEY   = var.elevenlabs_api_key
     MINIMAX_API_KEY      = var.minimax_api_key
     MINIMAX_GROUP_ID     = var.minimax_group_id
     AWS_S3_BUCKET        = module.s3.bucket_name
@@ -89,11 +88,6 @@ module "api_gateway" {
 
 variable "anthropic_api_key" {
   description = "Anthropic Claude API key"
-  sensitive   = true
-}
-
-variable "elevenlabs_api_key" {
-  description = "ElevenLabs API key"
   sensitive   = true
 }
 
