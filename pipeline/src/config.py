@@ -6,13 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # Anthropic
-    anthropic_api_key: str
-    claude_model: str = "claude-opus-4-6"
-
-    # MiniMax TTS
+    # MiniMax (LLM for script generation + TTS - per board decision CHA-8/10/11)
     minimax_api_key: str = ""
     minimax_group_id: str = ""
+    minimax_llm_model: str = "MiniMax-Text-01"
     minimax_voice_host: str = "Swedish_male_1_v1"
     minimax_voice_cobost: str = "Swedish_female_1_v1"
 

@@ -34,7 +34,6 @@ jobs:
       - name: Run tests
         run: pytest --cov=src --cov-report=xml -v
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           MINIMAX_GROUP_ID: ${{ secrets.MINIMAX_GROUP_ID }}
           AWS_S3_BUCKET: test-bucket

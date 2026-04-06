@@ -1,9 +1,9 @@
-"""ScriptWriter — uses Claude to select stories and write podcast scripts."""
+"""ScriptWriter — uses MiniMax LLM to select stories and write podcast scripts."""
 
 import json
 import logging
 
-import anthropic
+import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..config import settings
@@ -11,6 +11,8 @@ from ..ingestion.models import NewsStory
 from .models import PodcastScript, ScriptSegment
 
 logger = logging.getLogger(__name__)
+
+MINIMAX_LLM_BASE = "https://api.minimax.io/v1"
 
 SYSTEM_PROMPT = """\
 Du är chefredaktör för en AI-driven nyhetspodcast. Din uppgift är att skapa ett engagerande podcastmanus.
@@ -37,7 +39,9 @@ SCRIPT_SCHEMA = """\
 
 class ScriptWriter:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        self.api_key = settings.minimax_api_key
+        self.group_id = settings.minimax_group_id
+        self.model = settings.minimax_llm_model
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
     def generate_script(self, stories: list[NewsStory]) -> PodcastScript:
@@ -54,14 +58,30 @@ Svara med JSON enligt detta schema:
 {SCRIPT_SCHEMA}
 """
         logger.info("Generating script for %d stories", len(top_stories))
-        message = self.client.messages.create(
-            model=settings.claude_model,
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
 
-        raw = message.content[0].text.strip()
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": 4096,
+            "temperature": 0.7,
+        }
+        with httpx.Client(timeout=60.0) as client:
+            resp = client.post(
+                f"{MINIMAX_LLM_BASE}/chat/completions",
+                headers=headers,
+                json=payload,
+                params={"GroupId": self.group_id} if self.group_id else {},
+            )
+            resp.raise_for_status()
+        data = resp.json()
+        raw = data["choices"][0]["message"]["content"].strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
