@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # MiniMax (LLM for script generation + TTS - per board decision CHA-8/10/11)
     minimax_api_key: str = ""
     minimax_group_id: str = ""
-    minimax_llm_model: str = "MiniMax-Text-01"
+    minimax_llm_model: str = "MiniMax-M2.7-highspeed"
     minimax_voice_host: str = "Swedish_male_1_v1"
     minimax_voice_cobost: str = "Swedish_female_1_v1"
 
