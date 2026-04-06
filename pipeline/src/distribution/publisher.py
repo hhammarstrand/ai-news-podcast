@@ -20,8 +20,19 @@ RSS_NAMESPACE = "http://www.itunes.com/dtds/podcast-1.0.dtd"
 
 class EpisodePublisher:
     def __init__(self):
+        self.use_r2 = bool(settings.r2_endpoint_url and settings.r2_bucket)
         self.use_aws = bool(settings.aws_access_key_id and settings.aws_s3_bucket)
-        if self.use_aws:
+        
+        if self.use_r2:
+            self.s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.r2_endpoint_url,
+                aws_access_key_id=settings.r2_access_key_id,
+                aws_secret_access_key=settings.r2_secret_access_key,
+            )
+            self.bucket = settings.r2_bucket
+            self.public_url = settings.r2_public_url
+        elif self.use_aws:
             self.s3 = boto3.client(
                 "s3",
                 region_name=settings.aws_region,
@@ -29,9 +40,11 @@ class EpisodePublisher:
                 aws_secret_access_key=settings.aws_secret_access_key or None,
             )
             self.bucket = settings.aws_s3_bucket
+            self.public_url = f"https://{settings.aws_s3_bucket}.s3.{settings.aws_region}.amazonaws.com"
         else:
             self.output_dir = Path(settings.pipeline_output_dir) / "published"
             self.output_dir.mkdir(parents=True, exist_ok=True)
+            self.public_url = None
 
     def publish(self, episode_path: Path, script: PodcastScript, pub_date: datetime | None = None) -> str:
         """Upload episode MP3 and update RSS feed. Returns the public episode URL."""
@@ -50,14 +63,14 @@ class EpisodePublisher:
         return episode_url
 
     def _upload_audio(self, path: Path, key: str) -> str:
-        logger.info("Uploading %s → s3://%s/%s", path.name, self.bucket, key)
+        logger.info("Uploading %s → %s/%s", path.name, self.bucket, key)
         self.s3.upload_file(
             str(path),
             self.bucket,
             key,
-            ExtraArgs={"ContentType": "audio/mpeg", "ACL": "public-read"},
+            ExtraArgs={"ContentType": "audio/mpeg"},
         )
-        return f"https://{self.bucket}.s3.{settings.aws_region}.amazonaws.com/{key}"
+        return f"{self.public_url}/{key}"
 
     def _save_local(self, path: Path, pub_date: datetime) -> str:
         filename = f"{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"

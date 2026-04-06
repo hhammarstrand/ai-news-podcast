@@ -21,7 +21,14 @@ class Settings(BaseSettings):
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     aws_region: str = "eu-north-1"
-    aws_s3_bucket: str
+    aws_s3_bucket: str = ""
+
+    # Cloudflare R2 (S3-compatible object storage)
+    r2_endpoint_url: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket: str = ""
+    r2_public_url: str = ""
 
     # Database
     database_url: str
