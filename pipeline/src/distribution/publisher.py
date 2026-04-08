@@ -55,6 +55,10 @@ class EpisodePublisher:
             episode_key = f"episodes/{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"
             episode_url = self._upload_audio(episode_path, episode_key)
             self._update_rss(script, episode_url, episode_path, pub_date)
+        elif self.use_r2:
+            episode_key = f"episodes/{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"
+            episode_url = self._upload_audio(episode_path, episode_key)
+            self._update_rss(script, episode_url, episode_path, pub_date)
         else:
             episode_url = self._save_local(episode_path, pub_date)
             self._save_rss_local(script, episode_path, pub_date)
