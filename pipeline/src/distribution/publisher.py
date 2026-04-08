@@ -53,8 +53,13 @@ class EpisodePublisher:
 
         if self.use_aws:
             episode_key = f"episodes/{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"
-            episode_url = self._upload_audio(episode_path, episode_key)
-            self._update_rss(script, episode_url, episode_path, pub_date)
+            try:
+                episode_url = self._upload_audio(episode_path, episode_key)
+                self._update_rss(script, episode_url, episode_path, pub_date)
+            except Exception as e:
+                logger.warning("S3 upload failed: %s. Falling back to local storage.", e)
+                episode_url = self._save_local(episode_path, pub_date)
+                self._save_rss_local(script, episode_path, pub_date)
         elif self.use_r2:
             episode_key = f"episodes/{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"
             try:
