@@ -2,12 +2,139 @@
 
 import json
 import pytest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+from src.db.models import Article, StoryCluster
 from src.editorial.scriptwriter import ScriptWriter
 from src.editorial.models import ScriptSegment
+from src.ingestion.deduplicator import (
+    deduplicate,
+    extract_keywords,
+    make_topic_key,
+    mark_episode_covered,
+    persist,
+)
 from src.ingestion.models import NewsStory, NewsCategory
-from datetime import datetime, timezone
+
+
+class TestDeduplicator:
+    """Tests for news deduplication system."""
+
+    @pytest.fixture
+    def sample_story(self):
+        return NewsStory(
+            title="AI breakthrough announced",
+            summary="A major AI research lab announced a significant breakthrough",
+            url="https://example.com/ai-breakthrough",
+            source="TestSource",
+            category=NewsCategory.AI,
+            published_at=datetime.now(tz=timezone.utc),
+        )
+
+    @pytest.fixture
+    def followup_story(self, sample_story):
+        return NewsStory(
+            title="AI breakthrough: follow-up report",
+            summary="Further details emerged about the AI breakthrough announced yesterday",
+            url="https://example.com/ai-breakthrough-followup",
+            source="TestSource",
+            category=NewsCategory.AI,
+            published_at=sample_story.published_at + timedelta(days=1),
+        )
+
+    def test_extract_keywords(self):
+        text = "The quick brown fox jumps over the lazy dog"
+        keywords = extract_keywords(text)
+        assert "quick" in keywords
+        assert "brown" in keywords
+        assert "fox" in keywords
+        assert "the" not in keywords
+        assert "over" not in keywords
+
+    def test_make_topic_key_same_article(self, sample_story):
+        key1 = make_topic_key(sample_story)
+        key2 = make_topic_key(sample_story)
+        assert key1 == key2
+
+    def test_make_topic_key_different_articles(self, sample_story):
+        different_story = NewsStory(
+            title="Weather forecast for Stockholm",
+            summary="It will be sunny tomorrow",
+            url="https://example.com/weather",
+            source="TestSource",
+            category=NewsCategory.SWEDEN,
+            published_at=datetime.now(tz=timezone.utc),
+        )
+        key1 = make_topic_key(sample_story)
+        key2 = make_topic_key(different_story)
+        assert key1 != key2
+
+    def test_deduplicate_empty_list(self):
+        with patch("src.ingestion.deduplicator.get_db_session"):
+            result = deduplicate([], MagicMock())
+            assert result == []
+
+    def test_deduplicate_new_story(self, sample_story):
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+
+        result = deduplicate([sample_story], mock_db)
+        assert len(result) == 1
+        assert result[0].url == sample_story.url
+
+    def test_deduplicate_duplicate_url(self, sample_story):
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.all.return_value = [
+            (sample_story.url,)
+        ]
+
+        result = deduplicate([sample_story], mock_db)
+        assert len(result) == 0
+
+    def test_deduplicate_cluster_covered_recently(self, sample_story):
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.all.return_value = []
+        existing_cluster = MagicMock()
+        existing_cluster.covered_in_episode = True
+        existing_cluster.last_covered_at = datetime.now(tz=timezone.utc)
+        mock_db.query.return_value.filter.return_value.first.return_value = existing_cluster
+
+        result = deduplicate([sample_story], mock_db)
+        assert len(result) == 0
+
+    def test_deduplicate_cluster_covered_old(self, sample_story):
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.all.return_value = []
+        existing_cluster = MagicMock()
+        existing_cluster.covered_in_episode = True
+        existing_cluster.last_covered_at = datetime.now(tz=timezone.utc) - timedelta(days=10)
+        mock_db.query.return_value.filter.return_value.first.return_value = existing_cluster
+
+        result = deduplicate([sample_story], mock_db)
+        assert len(result) == 1
+
+    def test_deduplicate_followup_with_new_info(self, sample_story):
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.all.return_value = []
+        existing_cluster = MagicMock()
+        existing_cluster.covered_in_episode = True
+        existing_cluster.last_covered_at = datetime.now(tz=timezone.utc) - timedelta(days=1)
+        mock_db.query.return_value.filter.return_value.first.return_value = existing_cluster
+
+        followup = NewsStory(
+            title="AI breakthrough: follow-up report",
+            summary="Further details emerged about the AI breakthrough",
+            url="https://example.com/ai-followup",
+            source="TestSource",
+            category=NewsCategory.AI,
+            published_at=datetime.now(tz=timezone.utc),
+            full_text="A" * 300,
+        )
+
+        result = deduplicate([followup], mock_db)
+        assert len(result) == 1
 
 
 class TestScriptWriter:

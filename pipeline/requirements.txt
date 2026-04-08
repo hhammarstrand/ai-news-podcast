@@ -21,6 +21,7 @@ alembic>=1.14.0
 
 # Audio
 ffmpeg-python>=0.2.0
+gtts>=2.5.0
 
 # API
 fastapi>=0.115.0
