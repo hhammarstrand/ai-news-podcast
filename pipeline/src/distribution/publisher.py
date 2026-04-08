@@ -22,7 +22,9 @@ class EpisodePublisher:
     def __init__(self):
         self.use_r2 = bool(settings.r2_endpoint_url and settings.r2_bucket)
         self.use_aws = bool(settings.aws_access_key_id and settings.aws_s3_bucket)
-        
+        self.output_dir = Path(settings.pipeline_output_dir) / "published"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
         if self.use_r2:
             self.s3 = boto3.client(
                 "s3",
@@ -42,8 +44,6 @@ class EpisodePublisher:
             self.bucket = settings.aws_s3_bucket
             self.public_url = f"https://{settings.aws_s3_bucket}.s3.{settings.aws_region}.amazonaws.com"
         else:
-            self.output_dir = Path(settings.pipeline_output_dir) / "published"
-            self.output_dir.mkdir(parents=True, exist_ok=True)
             self.public_url = None
 
     def publish(self, episode_path: Path, script: PodcastScript, pub_date: datetime | None = None) -> str:
@@ -57,8 +57,13 @@ class EpisodePublisher:
             self._update_rss(script, episode_url, episode_path, pub_date)
         elif self.use_r2:
             episode_key = f"episodes/{pub_date.strftime('%Y%m%d_%H%M%S')}.mp3"
-            episode_url = self._upload_audio(episode_path, episode_key)
-            self._update_rss(script, episode_url, episode_path, pub_date)
+            try:
+                episode_url = self._upload_audio(episode_path, episode_key)
+                self._update_rss(script, episode_url, episode_path, pub_date)
+            except Exception as e:
+                logger.warning("R2 upload failed: %s. Falling back to local storage.", e)
+                episode_url = self._save_local(episode_path, pub_date)
+                self._save_rss_local(script, episode_path, pub_date)
         else:
             episode_url = self._save_local(episode_path, pub_date)
             self._save_rss_local(script, episode_path, pub_date)
