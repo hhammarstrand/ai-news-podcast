@@ -1,4 +1,4 @@
-"""ScriptWriter — uses MiniMax LLM to select stories and write podcast scripts."""
+"""ScriptWriter — uses OpenAI GPT-4o to select stories and write podcast scripts."""
 
 import json
 import logging
@@ -12,7 +12,7 @@ from .models import PodcastScript, ScriptSegment
 
 logger = logging.getLogger(__name__)
 
-MINIMAX_LLM_BASE = "https://api.minimax.io/v1"
+OPENAI_LLM_BASE = "https://api.openai.com/v1"
 
 SYSTEM_PROMPT = """\
 Du är chefredaktör för en AI-driven nyhetspodcast. Din uppgift är att skapa ett engagerande podcastmanus.
@@ -39,9 +39,8 @@ SCRIPT_SCHEMA = """\
 
 class ScriptWriter:
     def __init__(self):
-        self.api_key = settings.minimax_api_key
-        self.group_id = settings.minimax_group_id
-        self.model = settings.minimax_llm_model
+        self.api_key = settings.openai_api_key
+        self.model = settings.openai_llm_model
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
     def generate_script(self, stories: list[NewsStory]) -> PodcastScript:
@@ -74,14 +73,15 @@ Svara med JSON enligt detta schema:
         }
         with httpx.Client(timeout=60.0) as client:
             resp = client.post(
-                f"{MINIMAX_LLM_BASE}/chat/completions",
+                f"{OPENAI_LLM_BASE}/chat/completions",
                 headers=headers,
                 json=payload,
-                params={"GroupId": self.group_id} if self.group_id else {},
             )
             resp.raise_for_status()
         data = resp.json()
         raw = data["choices"][0]["message"]["content"].strip()
+        if "</think>" in raw:
+            raw = raw.split("</think>")[-1].strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):

@@ -6,12 +6,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # MiniMax (LLM for script generation + TTS - per board decision CHA-8/10/11)
+    # MiniMax (TTS only - per board decision CHA-8/10/11)
     minimax_api_key: str = ""
     minimax_group_id: str = ""
-    minimax_llm_model: str = "MiniMax-M2.7-highspeed"
     minimax_voice_host: str = "Swedish_male_1_v1"
     minimax_voice_cobost: str = "Swedish_female_1_v1"
+
+    # OpenAI (LLM for script generation - authorized by CEO 2026-04-08)
+    openai_api_key: str = ""
+    openai_llm_model: str = "gpt-4o"
 
     # ElevenLabs TTS (optional fallback)
     elevenlabs_api_key: str = ""
@@ -31,7 +34,7 @@ class Settings(BaseSettings):
     r2_public_url: str = ""
 
     # Database
-    database_url: str
+    database_url: str = ""
 
     # News sources
     news_api_key: str = ""
