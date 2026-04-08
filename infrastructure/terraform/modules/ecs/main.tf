@@ -109,6 +109,33 @@ resource "aws_iam_role_policy" "secrets_manager" {
   })
 }
 
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_role_policy" "s3_publishing" {
+  name = "${var.prefix}-ecs-s3-publishing"
+
+  role = aws_iam_role.ecs_task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "S3Publishing"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.pipeline_environment["AWS_S3_BUCKET"]}",
+          "arn:aws:s3:::${var.pipeline_environment["AWS_S3_BUCKET"]}/*"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_ecs_task_definition" "pipeline" {
   family                   = "${var.prefix}-pipeline"
   network_mode             = "awsvpc"
