@@ -21,7 +21,7 @@ RSS_NAMESPACE = "http://www.itunes.com/dtds/podcast-1.0.dtd"
 class EpisodePublisher:
     def __init__(self):
         self.use_r2 = bool(settings.r2_endpoint_url and settings.r2_bucket)
-        self.use_aws = bool(settings.aws_access_key_id and settings.aws_s3_bucket)
+        self.use_aws = bool(settings.aws_s3_bucket)
         self.output_dir = Path(settings.pipeline_output_dir) / "published"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
