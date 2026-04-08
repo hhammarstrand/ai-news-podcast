@@ -1,8 +1,6 @@
 """EpisodePublisher — uploads episode to S3 or saves locally."""
 
-import hashlib
 import logging
-import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
