@@ -1,4 +1,4 @@
-"""ScriptWriter — uses OpenAI GPT-4o to select stories and write podcast scripts."""
+"""ScriptWriter — uses OpenAI GPT-4o or MiniMax LLM to select stories and write podcast scripts."""
 
 import json
 import logging
@@ -12,51 +12,59 @@ from .models import PodcastScript, ScriptSegment
 
 logger = logging.getLogger(__name__)
 
+MINIMAX_LLM_BASE = "https://api.minimax.io/v1"
 OPENAI_LLM_BASE = "https://api.openai.com/v1"
 
-SYSTEM_PROMPT = """\
-Du är chefredaktör för en AI-driven nyhetspodcast. Din uppgift är att skapa ett engagerande podcastmanus.
+SYSTEM_PROMPT = (
+    "Du är chefredaktör för en AI-driven nyhetspodcast. Din uppgift är att skapa ett engagerande podcastmanus.\n\n"
+    "Podcasten täcker: svenska nyheter, internationella nyheter, tech och AI.\n"
+    "Ton: professionell men tillgänglig, faktuell, lagom tempostark.\n"
+    "Längd: ca 8-12 minuter total lyssning.\n"
+    "Format: Dialogformat med två värdar — \"host\" och \"co_host\".\n\n"
+    "Svara ALLTID med giltig JSON enligt det schema du ges."
+)
 
-Podcasten täcker: svenska nyheter, internationella nyheter, tech och AI.
-Ton: professionell men tillgänglig, faktuell, lagom tempostark.
-Längd: ca 8-12 minuter total lyssning.
-Format: Dialogformat med två värdar — "host" och "co_host".
+SCRIPT_SCHEMA = (
+    "{\n"
+    '  "episode_title": "string",\n'
+    '  "episode_summary": "string (2-3 meningar för show notes)",\n'
+    '  "segments": [\n'
+    '    {"speaker": "host|co_host", "text": "talad text", "story_index": 0}\n'
+    "  ],\n"
+    '  "story_urls": ["url1", "url2"]\n'
+    "}"
+)
 
-Svara ALLTID med giltig JSON enligt det schema du ges.
-"""
-
-SCRIPT_SCHEMA = """\
-{
-  "episode_title": "string",
-  "episode_summary": "string (2-3 meningar för show notes)",
-  "segments": [
-    {"speaker": "host|co_host", "text": "talad text", "story_index": 0}
-  ],
-  "story_urls": ["url1", "url2"]
-}
-"""
+ML_TAG_CLOSE = "</think>"
+ML_TAG_OPEN = "<think>"
 
 
 class ScriptWriter:
     def __init__(self):
-        self.api_key = settings.openai_api_key
-        self.model = settings.openai_llm_model
+        if settings.openai_api_key:
+            self.api_key = settings.openai_api_key
+            self.model = settings.openai_llm_model
+            self.base_url = OPENAI_LLM_BASE
+            self.provider = "openai"
+        elif settings.minimax_api_key:
+            self.api_key = settings.minimax_api_key
+            self.model = "MiniMax-M2.7-highspeed"
+            self.base_url = MINIMAX_LLM_BASE
+            self.provider = "minimax"
+        else:
+            raise ValueError("No LLM API key configured (need OPENAI_API_KEY or MINIMAX_API_KEY)")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
     def generate_script(self, stories: list[NewsStory]) -> PodcastScript:
         top_stories = stories[: settings.max_stories_per_episode]
         stories_text = self._format_stories(top_stories)
 
-        prompt = f"""\
-Här är dagens nyheter:
-
-{stories_text}
-
-Välj de viktigaste och mest intressanta nyheterna och skriv ett podcastmanus.
-Svara med JSON enligt detta schema:
-{SCRIPT_SCHEMA}
-"""
-        logger.info("Generating script for %d stories", len(top_stories))
+        prompt = (
+            f"Här är dagens nyheter:\n\n{stories_text}\n\n"
+            "Välj de viktigaste och mest intressanta nyheterna och skriv ett podcastmanus.\n"
+            f"Svara med JSON enligt detta schema:\n{SCRIPT_SCHEMA}"
+        )
+        logger.info("Generating script for %d stories using %s", len(top_stories), self.provider)
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -73,15 +81,15 @@ Svara med JSON enligt detta schema:
         }
         with httpx.Client(timeout=60.0) as client:
             resp = client.post(
-                f"{OPENAI_LLM_BASE}/chat/completions",
+                f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
             )
             resp.raise_for_status()
         data = resp.json()
         raw = data["choices"][0]["message"]["content"].strip()
-        if "</think>" in raw:
-            raw = raw.split("</think>")[-1].strip()
+        if ML_TAG_CLOSE in raw:
+            raw = raw.split(ML_TAG_CLOSE)[-1].strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
