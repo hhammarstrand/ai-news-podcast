@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     podcast_title: str = "AI Nyhetspodcast"
     podcast_language: str = "sv"
     podcast_author: str = "AI News AB"
+    podcast_email: str = "hhammarstrand@gmail.com"
     podcast_rss_s3_key: str = "feed.xml"
 
     # Pipeline

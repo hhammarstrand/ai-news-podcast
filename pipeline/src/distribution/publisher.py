@@ -143,4 +143,7 @@ class EpisodePublisher:
         ET.SubElement(channel, "title").text = settings.podcast_title
         ET.SubElement(channel, "language").text = settings.podcast_language
         ET.SubElement(channel, "itunes:author").text = settings.podcast_author
+        itunes_owner = ET.SubElement(channel, "itunes:owner")
+        ET.SubElement(itunes_owner, "itunes:name").text = settings.podcast_author
+        ET.SubElement(itunes_owner, "itunes:email").text = settings.podcast_email
         return root, channel
