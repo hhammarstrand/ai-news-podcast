@@ -1,6 +1,5 @@
 """Main pipeline entrypoint — run this to generate one episode."""
 
-import logging
 import sys
 from contextlib import contextmanager
 from datetime import datetime, timezone

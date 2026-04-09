@@ -1,7 +1,6 @@
 """TTSSynthesizer — converts script segments to audio via MiniMax TTS, ElevenLabs fallback, or gTTS emergency fallback."""
 
 import logging
-import os
 from pathlib import Path
 
 import httpx

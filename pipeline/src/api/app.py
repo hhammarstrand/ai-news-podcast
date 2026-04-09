@@ -1,7 +1,6 @@
 """FastAPI application — articles API for editorial consumption."""
 
 from datetime import datetime
-from typing import Annotated
 
 from fastapi import Depends, FastAPI, Query
 from pydantic import BaseModel

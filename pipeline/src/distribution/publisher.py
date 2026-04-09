@@ -134,7 +134,6 @@ class EpisodePublisher:
         episode_path: Path,
         pub_date: datetime,
     ) -> None:
-        rss_path = self.output_dir / "feed.xml"
         item = {
             "title": script.episode_title,
             "description": script.episode_summary,
