@@ -4,7 +4,6 @@ import logging
 from datetime import datetime, timezone
 
 import feedparser
-import httpx
 
 from .models import NewsCategory, NewsStory
 
@@ -84,7 +83,6 @@ class NewsFetcher:
     def _parse_date(self, entry: dict) -> datetime | None:
         try:
             if hasattr(entry, "published_parsed") and entry.published_parsed:
-                import time
                 return datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
         except Exception:
             pass
