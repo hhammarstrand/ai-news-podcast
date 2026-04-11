@@ -1,5 +1,6 @@
 """EpisodePublisher — uploads episode to S3 or saves locally."""
 
+import json
 import logging
 import shutil
 from datetime import datetime, timezone
@@ -55,6 +56,7 @@ class EpisodePublisher:
             try:
                 episode_url = self._upload_audio(episode_path, episode_key)
                 self._update_rss(script, episode_url, episode_path, pub_date)
+                self._save_script_metadata(script, pub_date)
             except Exception as e:
                 logger.warning("S3 upload failed: %s. Falling back to local storage.", e)
                 episode_url = self._save_local(episode_path, pub_date)
@@ -64,6 +66,7 @@ class EpisodePublisher:
             try:
                 episode_url = self._upload_audio(episode_path, episode_key)
                 self._update_rss(script, episode_url, episode_path, pub_date)
+                self._save_script_metadata(script, pub_date)
             except Exception as e:
                 logger.warning("R2 upload failed: %s. Falling back to local storage.", e)
                 episode_url = self._save_local(episode_path, pub_date)
@@ -91,6 +94,24 @@ class EpisodePublisher:
         shutil.copy2(path, dest)
         logger.info("Saved episode to %s", dest)
         return str(dest.absolute())
+
+    def _save_script_metadata(self, script: PodcastScript, pub_date: datetime) -> None:
+        metadata = {
+            "episode_title": script.episode_title,
+            "episode_summary": script.episode_summary,
+            "pub_date": pub_date.isoformat(),
+            "story_urls": script.story_urls,
+            "segments": [{"speaker": seg.speaker, "text": seg.text, "story_index": seg.story_index} for seg in script.segments],
+        }
+        key = f"scripts/{pub_date.strftime('%Y%m%d_%H%M%S')}.json"
+        self.s3.put_object(
+            Bucket=self.bucket,
+            Key=key,
+            Body=json.dumps(metadata, ensure_ascii=False, indent=2),
+            ContentType="application/json",
+            ACL="public-read",
+        )
+        logger.info("Script metadata saved: %s", key)
 
     def _update_rss(
         self,
