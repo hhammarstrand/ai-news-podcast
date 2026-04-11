@@ -107,7 +107,11 @@ class EpisodePublisher:
         except self.s3.exceptions.NoSuchKey:
             root, channel = self._create_feed_skeleton()
 
-        item = ET.SubElement(channel, "item")
+        all_children = list(channel)
+        existing_items = channel.findall("item")
+        metadata_elements = [child for child in all_children if child.tag != "item"]
+
+        item = ET.Element("item")
         ET.SubElement(item, "title").text = script.episode_title
         ET.SubElement(item, "description").text = script.episode_summary
         ET.SubElement(item, "pubDate").text = pub_date.strftime("%a, %d %b %Y %H:%M:%S +0000")
@@ -118,6 +122,14 @@ class EpisodePublisher:
         enclosure.set("type", "audio/mpeg")
         guid = ET.SubElement(item, "guid")
         guid.text = episode_url
+
+        for child in all_children:
+            channel.remove(child)
+        for meta in metadata_elements:
+            channel.append(meta)
+        channel.append(item)
+        for old_item in existing_items:
+            channel.append(old_item)
 
         feed_bytes = ET.tostring(root, encoding="unicode", xml_declaration=True).encode()
         self.s3.put_object(
